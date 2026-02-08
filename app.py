@@ -1,25 +1,23 @@
 import os
 import streamlit as st
 import PyPDF2 as pdf
-import google.generativeai as genai
+from google import genai
 
-# ----------------------------------------
-# API KEY (Streamlit Cloud Secrets)
-# ----------------------------------------
+# -------------------------------------------------
+# API KEY (Streamlit Cloud → Secrets)
+# -------------------------------------------------
 API_KEY = os.getenv("GOOGLE_API_KEY")
 
 if not API_KEY:
     st.error("GOOGLE_API_KEY not found. Add it in Streamlit Cloud → Secrets.")
     st.stop()
 
-genai.configure(api_key=API_KEY)
+# Create Gemini client (NEW SDK)
+client = genai.Client(api_key=API_KEY)
 
-# ✅ THIS MODEL WORKS WITH v1beta
-model = genai.GenerativeModel("models/gemini-1.0-pro")
-
-# ----------------------------------------
+# -------------------------------------------------
 # STREAMLIT UI
-# ----------------------------------------
+# -------------------------------------------------
 st.set_page_config(page_title="Smart ATS", page_icon="🤖")
 
 st.title("Smart Application Tracking System")
@@ -28,9 +26,9 @@ st.write("AI-powered Resume ATS Analyzer")
 job_description = st.text_area("📄 Paste Job Description", height=200)
 uploaded_file = st.file_uploader("📎 Upload Resume (PDF)", type="pdf")
 
-# ----------------------------------------
-# PROMPT
-# ----------------------------------------
+# -------------------------------------------------
+# PROMPT TEMPLATE
+# -------------------------------------------------
 prompt_template = """
 You are an Applicant Tracking System (ATS).
 
@@ -47,9 +45,9 @@ Job Description:
 {jd}
 """
 
-# ----------------------------------------
-# ACTION
-# ----------------------------------------
+# -------------------------------------------------
+# BUTTON ACTION
+# -------------------------------------------------
 if st.button("Analyze Resume"):
     if not uploaded_file:
         st.warning("Please upload a resume PDF.")
@@ -63,15 +61,18 @@ if st.button("Analyze Resume"):
             for page in reader.pages:
                 resume_text += page.extract_text() or ""
 
-            resume_text = resume_text[:4000]  # safety
+            resume_text = resume_text[:4000]  # token safety
 
             final_prompt = prompt_template.format(
                 resume=resume_text,
                 jd=job_description
             )
 
-            with st.spinner("Analyzing resume..."):
-                response = model.generate_content(final_prompt)
+            with st.spinner("Analyzing resume with Gemini..."):
+                response = client.models.generate_content(
+                    model="gemini-1.5-flash",
+                    contents=final_prompt
+                )
 
             st.success("Analysis Complete ✅")
             st.write(response.text)
