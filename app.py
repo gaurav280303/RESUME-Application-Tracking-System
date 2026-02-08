@@ -1,78 +1,85 @@
 import os
-import PyPDF2 as pdf
 import streamlit as st
+import PyPDF2 as pdf
 import google.generativeai as genai
 
-# --------------------------------------------------
-# Get API key from Streamlit Cloud Secrets
-# --------------------------------------------------
+# -------------------------------------------------
+# CONFIG: API KEY (Streamlit Cloud Secrets)
+# -------------------------------------------------
 API_KEY = os.getenv("GOOGLE_API_KEY")
 
 if not API_KEY:
-    st.error("API key not found. Please add GOOGLE_API_KEY in Streamlit Secrets.")
+    st.error("GOOGLE_API_KEY not found. Add it in Streamlit Cloud → Secrets.")
     st.stop()
 
 genai.configure(api_key=API_KEY)
 
-# Use correct model
-model = genai.GenerativeModel("models/gemini-pro")
+# ✅ UPDATED & SUPPORTED MODEL
+model = genai.GenerativeModel("gemini-1.5-flash")
 
-# --------------------------------------------------
-# UI
-# --------------------------------------------------
+# -------------------------------------------------
+# STREAMLIT UI
+# -------------------------------------------------
 st.set_page_config(page_title="Smart ATS", page_icon="🤖")
+
 st.title("Smart Application Tracking System")
 st.write("AI-powered Resume ATS Analyzer")
 
-jd = st.text_area("Paste Job Description", height=200)
-uploaded_file = st.file_uploader("Upload Resume (PDF)", type="pdf")
+job_description = st.text_area("📄 Paste Job Description", height=200)
+uploaded_file = st.file_uploader("📎 Upload Resume (PDF)", type="pdf")
 
-# --------------------------------------------------
-# Prompt
-# --------------------------------------------------
+# -------------------------------------------------
+# PROMPT TEMPLATE
+# -------------------------------------------------
 prompt_template = """
-You are an Applicant Tracking System (ATS).
+You are an advanced Applicant Tracking System (ATS).
 
-Analyze the resume against the job description and respond ONLY in this format:
+Analyze the resume against the job description and return the result
+STRICTLY in the following format:
 
 Job Description Match: <percentage>%
 Missing Keywords: <comma separated keywords>
-Profile Summary: <short summary>
+Profile Summary: <short professional summary>
 
 Resume:
-{resume}
+{resume_text}
 
 Job Description:
-{jd}
+{job_description}
 """
 
-# --------------------------------------------------
-# Button Logic
-# --------------------------------------------------
+# -------------------------------------------------
+# BUTTON ACTION
+# -------------------------------------------------
 if st.button("Analyze Resume"):
-    if not jd.strip():
-        st.warning("Please paste a job description.")
-    elif uploaded_file is None:
+    if not uploaded_file:
         st.warning("Please upload a resume PDF.")
+    elif not job_description.strip():
+        st.warning("Please paste a job description.")
     else:
-        reader = pdf.PdfReader(uploaded_file)
-        resume_text = ""
+        try:
+            # Extract text from PDF
+            reader = pdf.PdfReader(uploaded_file)
+            resume_text = ""
 
-        for page in reader.pages:
-            resume_text += page.extract_text()
+            for page in reader.pages:
+                resume_text += page.extract_text() or ""
 
-        resume_text = resume_text[:4000]  # token safety
+            # Token safety
+            resume_text = resume_text[:4000]
 
-        final_prompt = prompt_template.format(
-            resume=resume_text,
-            jd=jd
-        )
+            # Fill prompt correctly
+            final_prompt = prompt_template.format(
+                resume_text=resume_text,
+                job_description=job_description
+            )
 
-        with st.spinner("Analyzing resume..."):
-            try:
+            # Call Gemini
+            with st.spinner("Analyzing resume with AI..."):
                 response = model.generate_content(final_prompt)
-                st.success("Analysis completed")
-                st.write(response.text)
-            except Exception as e:
-                st.error(f"Gemini API error: {e}")
 
+            st.success("Analysis Complete ✅")
+            st.write(response.text)
+
+        except Exception as e:
+            st.error(f"Gemini API Error: {e}")
