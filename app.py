@@ -3,9 +3,9 @@ import streamlit as st
 import PyPDF2 as pdf
 import google.generativeai as genai
 
-# -------------------------------------------------
-# CONFIG: API KEY (Streamlit Cloud Secrets)
-# -------------------------------------------------
+# ----------------------------------------
+# API KEY (Streamlit Cloud Secrets)
+# ----------------------------------------
 API_KEY = os.getenv("GOOGLE_API_KEY")
 
 if not API_KEY:
@@ -14,12 +14,12 @@ if not API_KEY:
 
 genai.configure(api_key=API_KEY)
 
-# ✅ UPDATED & SUPPORTED MODEL
-model = genai.GenerativeModel("gemini-1.5-flash")
+# ✅ THIS MODEL WORKS WITH v1beta
+model = genai.GenerativeModel("models/gemini-1.0-pro")
 
-# -------------------------------------------------
+# ----------------------------------------
 # STREAMLIT UI
-# -------------------------------------------------
+# ----------------------------------------
 st.set_page_config(page_title="Smart ATS", page_icon="🤖")
 
 st.title("Smart Application Tracking System")
@@ -28,29 +28,28 @@ st.write("AI-powered Resume ATS Analyzer")
 job_description = st.text_area("📄 Paste Job Description", height=200)
 uploaded_file = st.file_uploader("📎 Upload Resume (PDF)", type="pdf")
 
-# -------------------------------------------------
-# PROMPT TEMPLATE
-# -------------------------------------------------
+# ----------------------------------------
+# PROMPT
+# ----------------------------------------
 prompt_template = """
-You are an advanced Applicant Tracking System (ATS).
+You are an Applicant Tracking System (ATS).
 
-Analyze the resume against the job description and return the result
-STRICTLY in the following format:
+Analyze the resume against the job description and respond ONLY in this format:
 
 Job Description Match: <percentage>%
 Missing Keywords: <comma separated keywords>
 Profile Summary: <short professional summary>
 
 Resume:
-{resume_text}
+{resume}
 
 Job Description:
-{job_description}
+{jd}
 """
 
-# -------------------------------------------------
-# BUTTON ACTION
-# -------------------------------------------------
+# ----------------------------------------
+# ACTION
+# ----------------------------------------
 if st.button("Analyze Resume"):
     if not uploaded_file:
         st.warning("Please upload a resume PDF.")
@@ -58,24 +57,20 @@ if st.button("Analyze Resume"):
         st.warning("Please paste a job description.")
     else:
         try:
-            # Extract text from PDF
             reader = pdf.PdfReader(uploaded_file)
             resume_text = ""
 
             for page in reader.pages:
                 resume_text += page.extract_text() or ""
 
-            # Token safety
-            resume_text = resume_text[:4000]
+            resume_text = resume_text[:4000]  # safety
 
-            # Fill prompt correctly
             final_prompt = prompt_template.format(
-                resume_text=resume_text,
-                job_description=job_description
+                resume=resume_text,
+                jd=job_description
             )
 
-            # Call Gemini
-            with st.spinner("Analyzing resume with AI..."):
+            with st.spinner("Analyzing resume..."):
                 response = model.generate_content(final_prompt)
 
             st.success("Analysis Complete ✅")
